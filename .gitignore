@@ -1,0 +1,6 @@
+rolo_rain_generation_mod
+gy/
+*.dfs2
+*.ipynb
+__pycache__/
+todo.txt
