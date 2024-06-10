@@ -1,6 +1,6 @@
-rolo_rain_generation_mod
-gy/
+create_input_data/rolo_rain_generation_mod
+create_input_data/gy/
 *.dfs2
 *.ipynb
-__pycache__/
-todo.txt
+create_input_data/__pycache__/
+create_input_data/todo.txt
