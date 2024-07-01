@@ -3,9 +3,10 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import re
 class Integrate_AR_Model():
-    def __init__(self, model, hdf5_path,test_key,start_time = 0,end_time = -1): # Movie these to the integration function
-        self.model = model.eval()
+    def __init__(self, model_path, hdf5_path,test_key,start_time = 0,end_time = -1): # Movie these to the integration function
+        self.model = torch.jit.load(model_path).eval()
         self.hdf5_path = hdf5_path
         self.test_key = test_key
         self.start_time = start_time
@@ -15,6 +16,16 @@ class Integrate_AR_Model():
 
         self.integration_done = False
         self.state_names = ['Height', 'X-momentum', 'Y-momentum']
+        self.model_id = self.extract_model_id(model_path)
+        
+    def extract_model_id(self,model_path):
+        # Use a regular expression to extract the part between 'model_' and '.pth'
+        pattern = r'PW.*?FD_\d+'
+        match = re.search(pattern, model_path)
+        if match:
+            return match.group(0)
+        return None
+        
     def load_single_sim(self):
         with h5py.File(self.hdf5_path, 'r') as hdf:
             terrain = torch.from_numpy(hdf[self.test_key]['terrain'][:])
@@ -62,9 +73,7 @@ class Integrate_AR_Model():
 
         min_swe = np.min(self.swe.numpy(),axis = (0,2,3))
         max_swe = np.max(self.swe.numpy(),axis = (0,2,3))
-        # initial_sim = mask_data(self.swe[0, state])
-        # initial_cnn = mask_data(self.sim_results[0, state])
-        # initial_rain = mask_data(self.rain[0])
+
         initial_sim = self.swe[0, state]
         initial_cnn = self.sim_results[0, state]
         initial_rain = self.rain[0]
@@ -90,8 +99,9 @@ class Integrate_AR_Model():
             axs[2].set_title('Rainfall Intensity')
             cbar_label = 'Rainfall Intensity (mm/h)'
         elif plot_type == 'dif':
+            min_max_dif = [np.min((self.swe.numpy()-self.sim_results)[:,state]),np.max((self.swe.numpy()-self.sim_results)[:,state])]
             difference_0 = self.swe[0, state]-self.sim_results[0, state]
-            im_rain = axs[2].imshow(difference_0, cmap='jet', origin='lower')
+            im_rain = axs[2].imshow(difference_0, cmap='jet_r', origin='lower')
             axs[2].set_title('CNN - Simulated Difference')
             axs[2].set_title('CNN - Simulated Difference')
             cbar_label = 'Difference (Units)'
@@ -111,15 +121,14 @@ class Integrate_AR_Model():
             masked_cnn = self.sim_results[t, state]
             if plot_type == 'rain':
                 masked_rain = mask_data(self.rain[t])
-            elif plot_type == 'dif':
                 
+            elif plot_type == 'dif':
                 masked_rain =self.swe[t, state]-self.sim_results[t, state]
 
             # Update data for the images
             im_sim.set_data(masked_sim)
             im_cnn.set_data(masked_cnn)
             im_rain.set_data(masked_rain)
-            # Optionally adjust clim for dynamic visual range adjustments
             im_sim.set_clim(vmin=min_swe[state], vmax=max_swe[state]*1.25)
             im_cnn.set_clim(vmin=min_swe[state], vmax=max_swe[state]*1.25)
 
@@ -132,7 +141,8 @@ class Integrate_AR_Model():
 
             elif plot_type == 'dif':
                 axs[2].set_title(f'CNN - Simulated Difference at t={t}')
-                
+            im_rain.set_clim(vmin=min_max_dif[0], vmax=min_max_dif[1])
+
 
             return im_sim, im_cnn, im_rain
 
