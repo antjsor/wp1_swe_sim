@@ -36,11 +36,12 @@ class Integrate_AR_Model():
     def integrate_in_time(self):
         self.sim_results = np.zeros_like(self.swe.numpy())
         self.sim_results[0] = self.swe[0]
-        current_state = torch.cat([self.terrain.unsqueeze(dim = 0),self.rain[0].unsqueeze(dim = 0),self.swe[0]], dim = 0).unsqueeze(dim = 0)
+        x_dyn = torch.cat([self.rain[0].unsqueeze(dim = 0),self.swe[0]], dim = 0).unsqueeze(dim = 0)
+        x_stat = self.terrain.unsqueeze(dim = 0).unsqueeze(dim = 0)
         # Only integrate until the second to last time step since we need the last time step to predict the next time step
         for idx, rain_in in enumerate(self.rain[:-1]): # TODO fix index, this is a hacky work around.
-            swe_pred = self.model(current_state).squeeze()
-            current_state = torch.cat([self.terrain.unsqueeze(dim = 0),rain_in.unsqueeze(dim = 0),swe_pred], dim = 0).unsqueeze(dim=0)
+            swe_pred = self.model(x_stat,x_dyn).squeeze()
+            x_dyn = torch.cat([rain_in.unsqueeze(dim = 0),swe_pred], dim = 0).unsqueeze(dim=0)
             self.sim_results[idx+1] = swe_pred.detach().numpy()
         self.integration_done = True
         

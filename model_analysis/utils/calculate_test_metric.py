@@ -26,11 +26,12 @@ class CNN_Test_Metric():
         terrain,rain,swe = self.load_single_sim(test_id)
         sim_results = np.zeros_like(swe.numpy())
         sim_results[0] = swe[0]
-        current_state= torch.cat([terrain.unsqueeze(dim = 0),rain[0].unsqueeze(dim = 0),swe[0]], dim = 0).unsqueeze(dim = 0)
+        current_state= torch.cat([rain[0].unsqueeze(dim = 0),swe[0]], dim = 0).unsqueeze(dim = 0)
         
+        x_stat = terrain.unsqueeze(dim = 0).unsqueeze(dim = 0)
         for idx, rain_in in enumerate(rain[:-1]): # TODO fix index, this is a hacky work around.
-            swe_pred = model(current_state).squeeze()
-            current_state = torch.cat([terrain.unsqueeze(dim = 0),rain_in.unsqueeze(dim = 0),swe_pred], dim = 0).unsqueeze(dim=0)
+            swe_pred = model(x_stat, current_state).squeeze()
+            current_state = torch.cat([rain_in.unsqueeze(dim = 0),swe_pred], dim = 0).unsqueeze(dim=0)
             sim_results[idx+1] = swe_pred.detach().numpy()
         return sim_results,swe.numpy()
 
