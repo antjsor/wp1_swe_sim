@@ -17,7 +17,10 @@ class CNN_Test_Metric():
         with h5py.File(self.hdf5_path, 'r') as hdf:
             terrain = torch.from_numpy(hdf[test_key]['terrain'][:])
             rain = torch.from_numpy(hdf[test_key]['rain'][:]/(1000.0*1440.0))
-            swe = torch.from_numpy(hdf[test_key]['swe'][:])
+            swe_full = torch.from_numpy(hdf[test_key]['swe'][:])
+            swe = torch.zeros(swe_full.shape[0],2,swe_full.shape[2],swe_full.shape[2])
+            swe[:,0] = swe_full[:,0]
+            swe[:,1] = torch.sqrt(swe_full[:,1]**2 + swe_full[:,2]**2)
         return terrain,rain[self.start_time:self.end_time],swe[self.start_time:self.end_time]
     
     def integrate_in_time(self, model_path, test_id):
@@ -36,7 +39,7 @@ class CNN_Test_Metric():
             old_predictions = current_states
             current_states = model(x_stat, x_dyn,past_states)
             sim_results[idx+1] = current_states.detach().numpy()
-            past_states = torch.cat((past_states[:,3:],old_predictions),dim=1)
+            past_states = torch.cat((past_states[:,2:],old_predictions),dim=1)
         return sim_results, swe.numpy()
 
     def calculate_metric(self,model_paths, test_ids,type = 'rmse'):
@@ -69,7 +72,6 @@ class CNN_Test_Metric():
    
                 metric_dict[model_key][test_id]['height'] = error[0]
                 metric_dict[model_key][test_id]['xmom']  = error[1]
-                metric_dict[model_key][test_id]['ymom']  = error[2]
                 
         return metric_dict
       
