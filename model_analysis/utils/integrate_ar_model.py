@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import re
 class Integrate_AR_Model():
-    def __init__(self, model_path, hdf5_path,test_key,start_time = 0,end_time = -1): # Movie these to the integration function
+    def __init__(self, model_path, hdf5_path,test_key,look_back = 0, start_time = 0,end_time = -1): # Movie these to the integration function
         self.model = torch.jit.load(model_path).eval()
         self.hdf5_path = hdf5_path
         self.test_key = test_key
         self.start_time = start_time
         self.end_time = end_time
         self.terrain,self.rain,self.swe = self.load_single_sim()
-        
+        self.look_back = look_back
 
         self.integration_done = False
         self.state_names = ['Height', 'X-momentum', 'Y-momentum']
@@ -36,13 +36,19 @@ class Integrate_AR_Model():
     def integrate_in_time(self):
         self.sim_results = np.zeros_like(self.swe.numpy())
         self.sim_results[0] = self.swe[0]
-        x_dyn = torch.cat([self.rain[0].unsqueeze(dim = 0),self.swe[0]], dim = 0).unsqueeze(dim = 0)
+        x_dyn = torch.cat([self.rain[self.look_back + self.start_time].unsqueeze(dim = 0),self.swe[self.look_back + self.start_time]], dim = 0).unsqueeze(dim = 0)
         x_stat = self.terrain.unsqueeze(dim = 0).unsqueeze(dim = 0)
+        states_lookback = self.swe[:self.lookback]
+        old_predictions = 123
+        past_states = states_lookback.flatten(1,2)
+        
         # Only integrate until the second to last time step since we need the last time step to predict the next time step
         for idx, rain_in in enumerate(self.rain[:-1]): # TODO fix index, this is a hacky work around.
-            swe_pred = self.model(x_stat,x_dyn).squeeze()
+            swe_pred = self.model(x_stat,x_dyn,past_states).squeeze()
+            
             x_dyn = torch.cat([rain_in.unsqueeze(dim = 0),swe_pred], dim = 0).unsqueeze(dim=0)
             self.sim_results[idx+1] = swe_pred.detach().numpy()
+            past_states = torch.cat((past_states[:,3:],old_predictions),dim=1)
         self.integration_done = True
         
     def compute_error(self,type = 'rmse'):
