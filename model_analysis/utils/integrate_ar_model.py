@@ -30,30 +30,12 @@ class Integrate_AR_Model():
         with h5py.File(self.hdf5_path, 'r') as hdf:
             terrain = torch.from_numpy(hdf[test_key]['terrain'][:])
             rain = torch.from_numpy(hdf[test_key]['rain'][:]/(1000.0*1440.0))
-            swe_full = torch.from_numpy(hdf[test_key]['swe'][:])
-            swe = torch.zeros(swe_full.shape[0],2,swe_full.shape[2],swe_full.shape[2])
-            swe[:,0] = swe_full[:,0]
-            swe[:,1] = torch.sqrt(swe_full[:,1]**2 + swe_full[:,2]**2)
+            swe = torch.from_numpy(hdf[test_key]['swe'][:])
+
         return terrain,rain[self.start_time:self.end_time],swe[self.start_time:self.end_time]
     
     def integrate_in_time(self):
-        # self.sim_results = np.zeros_like(self.swe.numpy())
-        # self.sim_results[0] = self.swe[0]
-        # x_dyn = torch.cat([self.rain[self.look_back + self.start_time].unsqueeze(dim = 0),self.swe[self.look_back + self.start_time]], dim = 0).unsqueeze(dim = 0)
-        # x_stat = self.terrain.unsqueeze(dim = 0).unsqueeze(dim = 0)
-        # states_lookback = self.swe[:self.lookback]
-        # old_predictions = 123
-        # past_states = states_lookback.flatten(1,2)
-        
-        # # Only integrate until the second to last time step since we need the last time step to predict the next time step
-        # for idx, rain_in in enumerate(self.rain[:-1]): # TODO fix index, this is a hacky work around.
-        #     swe_pred = self.model(x_stat,x_dyn,past_states).squeeze()
-            
-        #     x_dyn = torch.cat([rain_in.unsqueeze(dim = 0),swe_pred], dim = 0).unsqueeze(dim=0)
-        #     self.sim_results[idx+1] = swe_pred.detach().numpy()
-        #     past_states = torch.cat((past_states[:,3:],old_predictions),dim=1)
-        # self.integration_done = True
-    
+
         def integrate_in_time_wrapped(self, model, test_id):
             model.eval()
             
@@ -69,7 +51,7 @@ class Integrate_AR_Model():
                 old_predictions = current_states
                 current_states = model(x_stat, x_dyn,past_states)
                 sim_results[idx+1] = current_states.detach().numpy()
-                past_states = torch.cat((past_states[:,2:],old_predictions),dim=1)
+                past_states = torch.cat((past_states[:,3:],old_predictions),dim=1)
             return sim_results, swe.numpy()
         self.sim_results, _ = integrate_in_time_wrapped(self, self.model, self.test_key)
         self.integration_done = True
